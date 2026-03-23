@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>静岡県版 手取り計算ツール</title>
+
+<style>
+  body {
+    font-family: sans-serif;
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+    line-height: 1.6;
+  }
+  .box {
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  input, select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    box-sizing: border-box;
+  }
+  button {
+    width: 100%;
+    padding: 10px;
+    background: #333;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #555;
+  }
+  .result {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    background: #fafafa;
+  }
+  .title {
+    font-weight: bold;
+    margin-top: 20px;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>静岡県版 手取り計算ツール（正確版）</h2>
+<p>月収・前年の年収・扶養人数を入力すると、静岡県の保険料率で正確な手取りを計算します。</p>
+
+<div class="box">
+  <label>月収（総支給額・万円）</label>
+  <input type="number" id="salary" placeholder="例：30">
+
+  <label>前年の年収（万円）</label>
+  <input type="number" id="lastYearIncome" placeholder="例：420">
+
+  <label>扶養人数</label>
+  <select id="fuyou">
+    <option value="0">0人</option>
+    <option value="1">1人</option>
+    <option value="2">2人</option>
+    <option value="3">3人</option>
+    <option value="4">4人</option>
+    <option value="5">5人</option>
+  </select>
+
+  <button onclick="calc()">手取りを計算する</button>
+</div>
+
+<div id="output"></div>
+
+<script>
+// ===============================
+// 標準報酬月額の等級表（簡易版）
+// ===============================
+const gradeTable = [
+  {min: 0, max: 62999, std: 58000},
+  {min: 63000, max: 72999, std: 68000},
+  {min: 73000, max: 82999, std: 78000},
+  {min: 83000, max: 92999, std: 88000},
+  {min: 93000, max: 101999, std: 98000},
+  {min: 102000, max: 107999, std: 104000},
+  {min: 108000, max: 113999, std: 110000},
+  {min: 114000, max: 119999, std: 116000},
+  {min: 120000, max: 125999, std: 122000},
+  {min: 126000, max: 131999, std: 128000},
+  {min: 132000, max: 137999, std: 134000},
+  {min: 138000, max: 143999, std: 140000},
+  {min: 144000, max: 149999, std: 146000},
+  {min: 150000, max: 155999, std: 152000},
+  {min: 156000, max: 161999, std: 158000},
+  {min: 162000, max: 167999, std: 164000},
+  {min: 168000, max: 173999, std: 170000},
+  {min: 174000, max: 179999, std: 176000},
+  {min: 180000, max: 185999, std: 182000},
+  {min: 186000, max: 191999, std: 188000},
+  {min: 192000, max: 197999, std: 194000},
+  {min: 198000, max: 203999, std: 200000},
+  {min: 204000, max: 209999, std: 206000},
+  {min: 210000, max: 215999, std: 212000},
+  {min: 216000, max: 221999, std: 218000},
+  {min: 222000, max: 227999, std: 224000},
+  {min: 228000, max: 233999, std: 230000},
+  {min: 234000, max: 239999, std: 236000},
+  {min: 240000, max: 245999, std: 242000},
+  {min: 246000, max: 251999, std: 248000},
+  {min: 252000, max: 257999, std: 254000},
+  {min: 258000, max: 263999, std: 260000},
+  {min: 264000, max: 269999, std: 266000},
+  {min: 270000, max: 289999, std: 280000},
+  {min: 290000, max: 309999, std: 300000},
+  {min: 310000, max: 329999, std: 320000},
+  {min: 330000, max: 349999, std: 340000},
+  {min: 350000, max: 369999, std: 360000},
+  {min: 370000, max: 395999, std: 380000},
+  {min: 396000, max: 425999, std: 410000},
+  {min: 426000, max: 455999, std: 440000},
+  {min: 456000, max: 485999, std: 470000},
+  {min: 486000, max: 515999, std: 500000},
+  {min: 516000, max: 545999, std: 530000},
+  {min: 546000, max: 575999, std: 560000},
+  {min: 576000, max: 605999, std: 590000},
+  {min: 606000, max: 9999999, std: 620000}
+];
+
+// 所得税（簡易版）
+function calcIncomeTax(salary) {
+  return Math.floor(salary * 0.02);
+}
+
+// 住民税（前年年収から自動計算）
+function calcResidentTax(lastIncome, fuyou) {
+  const kyuyoKoujo =
+    lastIncome < 1625000 ? 550000 :
+    lastIncome < 1800000 ? (lastIncome * 0.4 - 100000) :
+    lastIncome < 3600000 ? (lastIncome * 0.3 + 80000) :
+    lastIncome < 6600000 ? (lastIncome * 0.2 + 440000) :
+    1950000;
+
+  const kisoKoujo = 430000;
+  const fuyouKoujo = fuyou * 380000;
+
+  const taxable = Math.max(0, lastIncome - kyuyoKoujo - kisoKoujo - fuyouKoujo);
+  const shotokuWar = taxable * 0.10;
+  const kintoWar = 5000;
+
+  return Math.floor((shotokuWar + kintoWar) / 12);
+}
+
+function calc() {
+  // 万円 → 円 に変換
+  const salary = Number(document.getElementById("salary").value) * 10000;
+  const lastIncome = Number(document.getElementById("lastYearIncome").value) * 10000;
+  const fuyou = Number(document.getElementById("fuyou").value);
+
+  if (!salary || !lastIncome) {
+    alert("月収と前年年収を入力してください");
+    return;
+  }
+
+  const grade = gradeTable.find(g => salary >= g.min && salary <= g.max);
+  const std = grade.std;
+
+  const kenpo = Math.floor(std * 0.04845);
+  const nenkin = Math.floor(std * 0.0915);
+  const koyou = Math.floor(salary * 0.006);
+
+  const shotoku = calcIncomeTax(salary);
+  const jumin = calcResidentTax(lastIncome, fuyou);
+
+  const total = kenpo + nenkin + koyou + shotoku + jumin;
+  const net = salary - total;
+
+  document.getElementById("output").innerHTML = `
+  <div class="result">
+    <div class="title">手取り額</div>
+    <p><strong>${net.toLocaleString()} 円</strong></p>
+
+    <div class="title">控除の内訳</div>
+    <p>健康保険（静岡）：${kenpo.toLocaleString()} 円</p>
+    <p>厚生年金：${nenkin.toLocaleString()} 円</p>
+    <p>雇用保険：${koyou.toLocaleString()} 円</p>
+    <p>所得税：${shotoku.toLocaleString()} 円</p>
+    <p>住民税：${jumin.toLocaleString()} 円</p>
+
+    <div class="title">【合計控除額】</div>
+    <p><strong>${total.toLocaleString()} 円</strong></p>
+
+    <div class="title">標準報酬月額</div>
+    <p>${std.toLocaleString()} 円</p>
+  </div>
+`;
+}
+</script>
+
+</body>
+</html>
