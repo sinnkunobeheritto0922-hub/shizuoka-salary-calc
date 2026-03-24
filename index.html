@@ -1,10 +1,12 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>静岡県版 手取り計算ツール</title>
+
+<!-- Chart.js 読み込み -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
   body {
@@ -78,6 +80,9 @@
 </div>
 
 <div id="output"></div>
+
+<!-- 円グラフ表示エリア -->
+<canvas id="salaryChart" style="width:100%; max-width:600px; margin-top:20px;"></canvas>
 
 <script>
 // ===============================
@@ -175,33 +180,4 @@ function calc() {
   const nenkin = Math.floor(std * 0.0915);
   const koyou = Math.floor(salary * 0.006);
 
-  const shotoku = calcIncomeTax(salary);
-  const jumin = calcResidentTax(lastIncome, fuyou);
-
-  const total = kenpo + nenkin + koyou + shotoku + jumin;
-  const net = salary - total;
-
-  document.getElementById("output").innerHTML = `
-  <div class="result">
-    <div class="title">手取り額</div>
-    <p><strong>${net.toLocaleString()} 円</strong></p>
-
-    <div class="title">控除の内訳</div>
-    <p>健康保険（静岡）：${kenpo.toLocaleString()} 円</p>
-    <p>厚生年金：${nenkin.toLocaleString()} 円</p>
-    <p>雇用保険：${koyou.toLocaleString()} 円</p>
-    <p>所得税：${shotoku.toLocaleString()} 円</p>
-    <p>住民税：${jumin.toLocaleString()} 円</p>
-
-    <div class="title">【合計控除額】</div>
-    <p><strong>${total.toLocaleString()} 円</strong></p>
-
-    <div class="title">標準報酬月額</div>
-    <p>${std.toLocaleString()} 円</p>
-  </div>
-`;
-}
-</script>
-
-</body>
-</html>
+  const
